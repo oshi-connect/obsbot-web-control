@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "obsbot-sdk": ["./src/obsbot-sdk.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

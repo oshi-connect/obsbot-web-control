@@ -1,0 +1,15 @@
+node_modules/
+.direnv/
+.envrc.local
+.pnpm-store/
+
+build/
+dist/
+*.log
+
+.DS_Store
+.vscode/
+.idea/
+
+.env
+.env.local

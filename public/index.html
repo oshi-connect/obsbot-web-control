@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#0f1117" />
+<title>OBSBot Control</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #161a23;
+    --panel-2: #1c2230;
+    --border: #262d3d;
+    --border-strong: #344057;
+    --text: #e8ecf4;
+    --muted: #8a93a6;
+    --accent: #5ee0a3;
+    --accent-dim: rgba(94, 224, 163, 0.18);
+    --danger: #ff6b6b;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #app {
+    max-width: 320px;
+    margin: 0 auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  .card h2 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0 0 10px;
+    text-align: center;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .header .title {
+    font-weight: 600;
+    flex: 1;
+  }
+  .header .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--danger);
+    box-shadow: 0 0 8px currentColor;
+    transition: background 0.2s;
+  }
+  .header.connected .dot { background: var(--accent); }
+
+  .device-name {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+    word-break: break-all;
+  }
+
+  .ptz {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    place-items: center;
+    margin-bottom: 10px;
+  }
+  .ptz .empty { visibility: hidden; }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, transform 0.05s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button:hover:not(:disabled) {
+    background: #232a3a;
+    border-color: #3f4a63;
+  }
+  button:active:not(:disabled) { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .ptz-btn {
+    width: 64px;
+    height: 64px;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+  }
+  .ptz-btn.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .ptz-btn.center {
+    border-radius: 50%;
+    font-size: 14px;
+  }
+
+  .position {
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .preset-btn {
+    padding: 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .presets-empty {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 6px 0;
+  }
+
+  .footer {
+    color: var(--muted);
+    font-size: 10px;
+    text-align: center;
+    padding: 4px 0;
+  }
+
+  .auth-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 100;
+  }
+  .auth-modal.show { display: flex; }
+  .auth-modal .card { width: 100%; max-width: 280px; }
+  .auth-modal input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font: inherit;
+    margin: 8px 0;
+  }
+  .auth-modal button {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+  }
+
+  @media (max-width: 360px) {
+    #app { max-width: 100%; padding: 8px; }
+    .ptz-btn { width: 56px; height: 56px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header" id="header">
+    <div style="flex:1">
+      <div class="title">OBSBot Control</div>
+      <div class="device-name" id="deviceName">Disconnected</div>
+    </div>
+    <div class="dot" aria-hidden="true"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pan / Tilt</h2>
+    <div class="ptz">
+      <div class="empty"></div>
+      <button class="ptz-btn" data-dir="up" aria-label="Up">&#8593;</button>
+      <div class="empty"></div>
+      <button class="ptz-btn" data-dir="left" aria-label="Left">&#8592;</button>
+      <button class="ptz-btn center" data-action="reset" aria-label="Reset">&#9678;</button>
+      <button class="ptz-btn" data-dir="right" aria-label="Right">&#8594;</button>
+      <div class="empty"></div>
+      <button class="ptz-btn" data-dir="down" aria-label="Down">&#8595;</button>
+      <div class="empty"></div>
+    </div>
+    <div class="position" id="position">Pan 0.00, Tilt 0.00</div>
+  </div>
+
+  <div class="card">
+    <h2>Presets</h2>
+    <div class="presets" id="presets"></div>
+    <div class="presets-empty" id="presetsEmpty">No presets saved</div>
+  </div>
+
+  <div class="footer" id="footer">Connecting...</div>
+</div>
+
+<div class="auth-modal" id="authModal">
+  <div class="card">
+    <h2>Authentication</h2>
+    <input id="authToken" type="password" placeholder="Access token" autocomplete="off" />
+    <button id="authSubmit">Connect</button>
+  </div>
+</div>
+
+<script type="module">
+  const PTZ_SPEED = 30
+  const PTZ_TICK_MS = 100
+
+  const $ = (id) => document.getElementById(id)
+  const els = {
+    header: $("header"),
+    deviceName: $("deviceName"),
+    position: $("position"),
+    presets: $("presets"),
+    presetsEmpty: $("presetsEmpty"),
+    footer: $("footer"),
+    authModal: $("authModal"),
+    authToken: $("authToken"),
+    authSubmit: $("authSubmit"),
+  }
+
+  const state = {
+    ws: null,
+    connected: false,
+    authed: false,
+    storedToken: localStorage.getItem("obsbot-token") ?? "",
+    activeDir: null,
+    moveTimer: null,
+  }
+
+  const send = (type, payload) => {
+    if (state.ws?.readyState === WebSocket.OPEN) {
+      state.ws.send(JSON.stringify({ type, payload }))
+    }
+  }
+
+  const setConnected = (connected, name) => {
+    state.connected = connected
+    els.header.classList.toggle("connected", connected)
+    els.deviceName.textContent = connected ? (name ?? "Camera") : "Disconnected"
+    document.querySelectorAll(".ptz-btn, .preset-btn")
+      .forEach((b) => { b.disabled = !connected })
+  }
+
+  const renderPresets = (presets) => {
+    els.presets.innerHTML = ""
+    if (!presets || presets.length === 0) {
+      els.presetsEmpty.style.display = "block"
+      return
+    }
+    els.presetsEmpty.style.display = "none"
+    presets.forEach((p, idx) => {
+      const btn = document.createElement("button")
+      btn.className = "preset-btn"
+      btn.textContent = `P${idx + 1}`
+      btn.title = `Preset ${p.id} — pan ${p.pan?.toFixed?.(1) ?? "?"}°, pitch ${p.pitch?.toFixed?.(1) ?? "?"}°`
+      btn.disabled = !state.connected
+      btn.addEventListener("click", () => send("preset:goto", { id: p.id }))
+      els.presets.appendChild(btn)
+    })
+  }
+
+  const handleStatus = (s) => {
+    setConnected(!!s.connected, s.deviceName)
+    if (s.gimbal) {
+      els.position.textContent =
+        `Pan ${s.gimbal.pan.toFixed(2)}, Tilt ${s.gimbal.pitch.toFixed(2)}`
+    } else {
+      els.position.textContent = "Pan 0.00, Tilt 0.00"
+    }
+    renderPresets(s.presets ?? [])
+  }
+
+  const onMessage = (raw) => {
+    let msg
+    try { msg = JSON.parse(raw) } catch { return }
+    switch (msg.type) {
+      case "auth:required":
+        if (state.storedToken) {
+          send("auth", { token: state.storedToken })
+        } else {
+          els.authModal.classList.add("show")
+          els.authToken.focus()
+        }
+        return
+      case "auth:ok":
+        state.authed = true
+        els.authModal.classList.remove("show")
+        return
+      case "status":
+        handleStatus(msg.payload)
+        return
+      case "preset:list":
+        renderPresets(msg.payload ?? [])
+        return
+      case "error":
+        console.warn("[server]", msg.payload?.message)
+        if (msg.payload?.message === "auth required") {
+          state.authed = false
+          state.storedToken = ""
+          localStorage.removeItem("obsbot-token")
+          els.authModal.classList.add("show")
+        }
+        return
+    }
+  }
+
+  const connect = () => {
+    const proto = location.protocol === "https:" ? "wss" : "ws"
+    const ws = new WebSocket(`${proto}://${location.host}/ws`)
+    state.ws = ws
+    els.footer.textContent = "Connecting..."
+
+    ws.addEventListener("open", () => {
+      els.footer.textContent = "Connected"
+      send("status")
+    })
+    ws.addEventListener("message", (ev) => onMessage(ev.data))
+    ws.addEventListener("close", () => {
+      setConnected(false, null)
+      els.footer.textContent = "Reconnecting in 2s..."
+      setTimeout(connect, 2000)
+    })
+    ws.addEventListener("error", () => {
+      els.footer.textContent = "Connection error"
+    })
+  }
+
+  const dirToVec = (dir) => {
+    switch (dir) {
+      case "up":    return { pitch: -PTZ_SPEED, pan: 0 }
+      case "down":  return { pitch:  PTZ_SPEED, pan: 0 }
+      case "left":  return { pitch: 0, pan:  PTZ_SPEED }
+      case "right": return { pitch: 0, pan: -PTZ_SPEED }
+      default:      return { pitch: 0, pan: 0 }
+    }
+  }
+
+  const startMove = (dir, btn) => {
+    if (state.activeDir === dir || !state.connected) return
+    stopMove()
+    state.activeDir = dir
+    btn.classList.add("active")
+    const v = dirToVec(dir)
+    send("ptz:move", v)
+    state.moveTimer = setInterval(() => send("ptz:move", v), PTZ_TICK_MS)
+  }
+
+  const stopMove = () => {
+    if (state.moveTimer) {
+      clearInterval(state.moveTimer)
+      state.moveTimer = null
+    }
+    if (state.activeDir) {
+      document.querySelectorAll(".ptz-btn.active").forEach((b) => b.classList.remove("active"))
+      state.activeDir = null
+      send("ptz:stop")
+    }
+  }
+
+  document.querySelectorAll(".ptz-btn[data-dir]").forEach((btn) => {
+    const dir = btn.dataset.dir
+    const start = (e) => { e.preventDefault(); startMove(dir, btn) }
+    btn.addEventListener("pointerdown", start)
+    btn.addEventListener("pointerup", stopMove)
+    btn.addEventListener("pointerleave", stopMove)
+    btn.addEventListener("pointercancel", stopMove)
+  })
+
+  document.querySelector('.ptz-btn[data-action="reset"]')
+    .addEventListener("click", () => send("ptz:reset"))
+
+  els.authSubmit.addEventListener("click", () => {
+    const token = els.authToken.value.trim()
+    if (!token) return
+    state.storedToken = token
+    localStorage.setItem("obsbot-token", token)
+    send("auth", { token })
+  })
+  els.authToken.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") els.authSubmit.click()
+  })
+
+  window.addEventListener("blur", stopMove)
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stopMove() })
+
+  setConnected(false, null)
+  connect()
+</script>
+</body>
+</html>
