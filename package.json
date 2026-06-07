@@ -4,6 +4,7 @@
   "description": "Remote PTZ web widget for OBSBot Tiny SE -- pairs with VDO.Ninja",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
