@@ -29,7 +29,12 @@ declare module "obsbot-sdk" {
     hue: { min: number; max: number; default: number; step: number }
   }
 
+  export type NativeDevice = {
+    getGimbalPose?(): { roll: number; pitch: number; pan: number } | undefined
+  }
+
   export class BaseDevice {
+    _native: NativeDevice
     getSn(): string
     getName(): string
     getProductType(): number

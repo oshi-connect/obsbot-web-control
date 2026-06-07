@@ -95,6 +95,19 @@ type ClientState = {
 
 const MOVE_MIN_INTERVAL_MS = 80
 
+const readGimbalPoseSlim = (d: TinyDeviceLike) =>
+  safe(() => d._native.getGimbalPose?.(), undefined)
+
+const readGimbalPoseFull = (d: TinyDeviceLike) =>
+  safe(() => d.getStatus?.(), undefined)?.gimbal
+
+const readGimbal = (d: TinyDeviceLike) => {
+  const t0 = process.hrtime.bigint()
+  const pose = readGimbalPoseSlim(d) ?? readGimbalPoseFull(d)
+  const dtMs = Number(process.hrtime.bigint() - t0) / 1e6
+  return pose ? { ...pose, dtMs } : null
+}
+
 const send = (ws: WebSocket, type: string, payload: unknown = null) => {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type, payload }))
@@ -229,6 +242,22 @@ const main = () => {
 
   const statusTimer = setInterval(() => broadcastStatus(wss), 5000)
 
+  let gimbalLogTimer: ReturnType<typeof setInterval> | undefined
+  if (process.env.GIMBAL_LOG === "1") {
+    const hz = Number(process.env.GIMBAL_POLL_HZ ?? 30)
+    const ms = Math.max(1, Math.round(1000 / hz))
+    console.log(`[gimbal] console logging at ${hz} Hz`)
+    gimbalLogTimer = setInterval(() => {
+      const d = activeDevice
+      if (!d) return
+      const g = readGimbal(d)
+      if (!g) return
+      console.log(
+        `[gimbal] pan=${g.pan.toFixed(2)} tilt=${g.pitch.toFixed(2)} roll=${g.roll.toFixed(2)} (${g.dtMs.toFixed(1)}ms)`
+      )
+    }, ms)
+  }
+
   server.listen(PORT, HOST, () => {
     console.log(`[server] listening on http://${HOST}:${PORT}`)
     if (AUTH_TOKEN) console.log("[server] auth token required")
@@ -237,6 +266,7 @@ const main = () => {
   const shutdown = () => {
     console.log("\n[server] shutting down...")
     clearInterval(statusTimer)
+    if (gimbalLogTimer) clearInterval(gimbalLogTimer)
     safe(() => activeDevice?.gimbalMove(0, 0), false)
     safe(() => osbotSdk.release(), undefined)
     server.close(() => process.exit(0))
